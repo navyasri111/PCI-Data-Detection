@@ -34,7 +34,7 @@ This repository contains the Open Source Software to demonstrate how to build a 
 - [AWS LAMBDA LAYERS](https://aws.amazon.com/lambda-layers/)
 
 ### FRONT END : Simple S3 Web Application to upload multiple files
-[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 
 ## Getting Started
 
