@@ -1,7 +1,7 @@
-PCI DATA DETECTION
+# PCI DATA DETECTION
 ************
 
-###ABOUT
+# ABOUT
 
 PCI stands for Payment Card Industry. Data that relates to Payment Card Industry and is unique for a person comes under PCI data. PCI DSS was launched on September 7, 2006, to manage PCI security standards and improve account security throughout the transaction process. The Payment Card Industry Data Security Standard (PCI DSS) is a set of requirements intended to ensure that all companies that process, store, or transmit credit card information maintain a secure environment.
 
@@ -13,10 +13,6 @@ Firstly, users need to register/login to our website. After login user can uploa
 
 This helps reduce the PCI compliance and audit cost, as we will be able to move the PCI zone to the non-PCI zone. The security that a PCI zone requires is of level-3 whereas for PCI-free the security oflevel-1 is enough. So, we can also reduce the security building cost.
 
-
-
-### FRONT END : Simple S3 Web Application to upload multiple files
-[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## About
 This repository contains the Open Source Software to demonstrate how to build a simple WebApp to users upload files to S3.  
@@ -36,6 +32,9 @@ This repository contains the Open Source Software to demonstrate how to build a 
 - [AWS SES](https://aws.amazon.com/ses/)
 - [AWS LAMBDA](https://aws.amazon.com/lambda/)
 - [AWS LAMBDA LAYERS](https://aws.amazon.com/lambda-layers/)
+
+### FRONT END : Simple S3 Web Application to upload multiple files
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## Getting Started
 
@@ -86,8 +85,9 @@ display: none;
 
 Comming into the pipeline after the attachments
 
-#######
-IMAGES
+************
+
+# IMAGES
 
 1. After the login the attachments are being sent into the bucket
 2. Then after the attachments are being uploadeda a trigger is being called where the lambda will work automatically.
@@ -105,8 +105,9 @@ IMAGES
 14. Then it will send an email to the admin regarding the attachment and the details it is being found.
 15. both the PCI and non-PCI data will  be stored separately.
 
-#######
-NON- IMAGES
+**********
+
+# NON- IMAGES
 
 1. After the login the attachments are being sent into the bucket
 2. Then after the attachments are being uploadeda a trigger is being called where the lambda will work automatically.
