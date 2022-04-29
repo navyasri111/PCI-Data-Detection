@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: An AWS Serverless Specification template describing your function.
+Resources:
+  pdfHandler:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.8
+      CodeUri: .
+      Description: ''
+      MemorySize: 128
+      Timeout: 3
+      Role: 'arn:aws:iam::251091134017:role/service-role/pdfHandler-role-3lg5qp12'
+      Events:
+        BucketEvent1:
+          Type: S3
+          Properties:
+            Bucket:
+              Ref: Bucket1
+            Events:
+              - 's3:ObjectCreated:*'
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: non-images/
+  Bucket1:
+    Type: 'AWS::S3::Bucket'

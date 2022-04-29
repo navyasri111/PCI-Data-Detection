@@ -1,0 +1,260 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "This template creates stack of resources required for PCI Data Detection in Attachments uploaded by DCM to an S3 Bucket"
+
+Parameters:
+  AwsAccountType:
+    Description: "The AWS account environment type"
+    Type: String
+    Default: 'lab'
+    AllowedValues:
+      - 'lab'
+  AttachmentsBucketName:
+    Description: 'Name of the attachments Bucket'
+    Type: String
+    Default: 'pci.detection.bucket'
+  ArchivesBucketName:
+    Description: 'Name of the bucket that contains LambdaCode Archives and LambdaLayer Archives'
+    Type: String
+    Default: lambda.archives.bucket
+  CodeZipFileKey:
+    Description: 'S3ObjectKey for lambda function code Archives'
+    Type: String
+    Default: functionCodeArchives/pciDetectionFunction.zip
+  LayerZipFileKey:
+    Description: 'S3ObjectKey for lambda layers code Archives'
+    Type: String
+    Default: layerArchives/Image_Wand_Python3.8_Layer.zip
+
+Mappings:
+  AwsAccountTypeToProperties:
+    lab:
+      AccountNumber: '251091134017'
+      IAMUser: 'b10'
+      CostCenter: '95107'
+
+Resources:
+
+  AttachmentsBucket:
+    Type: AWS::S3::Bucket
+    DependsOn:
+      - PCIDetectionLambdaPermission
+    Properties:
+      BucketName: !Join ['',[!Ref AttachmentsBucketName,'.',!Ref AwsAccountType]]
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: 's3:ObjectCreated:*'
+            Function: !GetAtt PCIDetectionLambdaFunction.Arn
+      Tags:
+        - Key: 'Brand'
+          Value: 'PCI detection'
+        - Key: 'Team'
+          Value: 'B10'
+        - Key: 'AssetProtectionLevel'
+          Value: '1'
+
+  AttachmentsBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref AttachmentsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: 'AllowPutAndGetOnAttachments'
+            Action:
+              - 's3:Put*'
+              - 's3:Get*'
+              - 's3:ListBucket'
+            Effect: Allow
+            Resource:
+              - !Join ['',['arn:aws:s3:::',!Ref AttachmentsBucketName,'.',!Ref AwsAccountType,'/*']]
+              - !Join ['',['arn:aws:s3:::',!Ref AttachmentsBucketName,'.',!Ref AwsAccountType]]
+            Principal:
+              AWS:
+                - 'arn:aws:iam::251091134017:role/b10.major.project'
+          - Sid: 'AllowGetAndDeleteOnAttachments'
+            Action:
+              - 's3:Get*'
+              - 's3:Delete*'
+              - 's3:ListBucket'
+            Effect: Allow
+            Resource:
+              - !Join ['',['arn:aws:s3:::',!Ref AttachmentsBucketName,'.',!Ref AwsAccountType, '/*']]
+              - !Join ['',['arn:aws:s3:::',!Ref AttachmentsBucketName,'.',!Ref AwsAccountType]]
+            Principal:
+              AWS:
+                - !GetAtt PCIDetectionLambdaRole.Arn
+                - arn:aws:iam::251091134017:role/b10.major.project
+          - Sid: 'AllowAllActionsOnS3Bucket'
+            Action: 's3:*'
+            Effect: Allow
+            Resource:
+              - !Join ['',['arn:aws:s3:::',!Ref AttachmentsBucketName,'.',!Ref AwsAccountType, '/*']]
+              - !Join ['',['arn:aws:s3:::',!Ref AttachmentsBucketName,'.',!Ref AwsAccountType]]
+            Principal:
+              AWS:
+              - 'arn:aws:iam::251091134017:user/b10'  
+  PCIDetectionLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'ers-pci-detection-lambda-role-'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: 'CreationOfLogStream'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              Action:
+                - 'logs:*'
+              Effect: Allow
+              Resource: 'arn:aws:logs:*:*:*'
+        - PolicyName: 'GetAttachmentsFromS3'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              Action:
+                - 's3:GetObject'
+                - 's3:Get*'
+                - 's3:Delete*'
+                - 's3:ListBucket*'
+              Effect: Allow
+              Resource:
+                - !Join ['',['arn:aws:s3:::',!Ref AttachmentsBucketName,'.',!Ref AwsAccountType, '/*']]
+                - !Join ['',['arn:aws:s3:::',!Ref AttachmentsBucketName,'.',!Ref AwsAccountType]]
+        - PolicyName: 'TextractAccess'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              Effect: Allow
+              Action:
+                - 'textract:AnalyzeDocument'
+                - 'textract:DetectDocumentText'
+              Resource: '*'
+        - PolicyName: 'ComprehendAccess'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              Effect: Allow
+              Action: 
+                - 'comprehend:ContainsPiiEntities'
+                - 'comprehend:DetectPiiEntities'
+              Resource: '*'
+        - PolicyName: 'sesAccess'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              Effect: Allow
+              Action:
+                - 'ses:SendEmail'
+                - 'ses:SendRawEmail'
+              Resource: '*'
+        - PolicyName: 'sqsAccess'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              Effect: Allow
+              Action: 'sqs:SendMessage'
+              Resource: !GetAtt AttachmentInfoSQS.Arn
+        - PolicyName: 's3codebucketAccess'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              Effect: Allow
+              Action: 's3:*'
+              Resource: 
+                - !Join ['',['arn:aws:s3:::',!Ref ArchivesBucketName, '/*']]
+                - !Join ['',['arn:aws:s3:::',!Ref ArchivesBucketName]]
+ 
+  AttachmentInfoSQS:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: 'attachments_info_sqs_'
+      MaximumMessageSize: '262144'
+      MessageRetentionPeriod: '1209600'
+      VisibilityTimeout: '10800'
+      Tags:
+        - Key: 'Brand'
+          Value: 'PCI detection'
+        - Key: 'Team'
+          Value: 'B10'
+        - Key: 'AssetProtectionLevel'
+          Value: '1'
+
+  AttachmentInfoSQSPolicy:
+    Type: 'AWS::SQS::QueuePolicy'
+    Properties:
+      Queues:
+        - !Ref AttachmentInfoSQS
+      PolicyDocument:
+        Statement:
+          - Sid: 'Allow-send-message'
+            Action: 'sqs:SendMessage'
+            Effect: Allow
+            Resource: '*'
+            Principal:
+              AWS:
+                - !GetAtt PCIDetectionLambdaRole.Arn
+            Condition:
+              ArnEquals:
+                'aws:SourceArn': !Ref PCIDetectionLambdaFunction
+          - Sid: 'Allow-receive-message'
+            Action: 'sqs:ReceiveMessage'
+            Effect: Allow
+            Resource: '*'
+            Principal:
+              AWS:                 
+                - 'arn:aws:iam::251091134017:user/b10'
+
+  PCIDetectionLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Ref ArchivesBucketName
+        S3Key: !Ref CodeZipFileKey
+      Description: >-
+        This function detects pci data from attachments uploaded to an s3 bucket, using textract and comprehennd, and then sends results to SES and SQS destinations.
+      FunctionName: pciLambdaHandler
+      Handler: pciDetectionFunction.pciLambdaHandler
+      Environment:
+        Variables:
+          QueueURL: !Ref AttachmentInfoSQS
+      MemorySize: '10240'
+      Layers:
+        - !Ref ImageWandLayer
+      Role: !GetAtt PCIDetectionLambdaRole.Arn
+      Runtime: python3.8
+      Tags:
+        - Key: 'Brand'
+          Value: 'PCI detection'
+        - Key: 'Team'
+          Value: 'B10'
+        - Key: 'AssetProtectionLevel'
+          Value: '1'
+      Timeout: '600'
+
+  PCIDetectionLambdaPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref PCIDetectionLambdaFunction
+      Action: 'lambda:InvokeFunction'
+      Principal: s3.amazonaws.com
+      SourceArn: !Join ['',['arn:aws:s3:::',!Ref AttachmentsBucketName,'.',!Ref AwsAccountType]]
+      SourceAccount: !Ref 'AWS::AccountId'
+
+  ImageWandLayer:
+    Type: 'AWS::Lambda::LayerVersion'
+    Properties:
+      CompatibleRuntimes:
+        - python3.8
+      Content:
+        S3Bucket: !Ref ArchivesBucketName
+        S3Key: !Ref LayerZipFileKey
+      Description: 'Layer contains Image and Wand libraries for processing of Images'
+      LayerName: 'ImageWandLayer'
